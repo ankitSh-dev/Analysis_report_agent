@@ -1,0 +1,254 @@
+"""
+schemas.py
+
+Shared Pydantic models for the Analysis Agent.
+
+These models define the contract between:
+- Test Execution Agent
+- Monitoring Agent
+- Security Agent
+- Analysis Agent
+- Report Agent
+"""
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
+
+# ============================================================
+# Test Execution Agent Output
+# ============================================================
+
+class ExecutionResult(BaseModel):
+    """Output received from the Test Execution Agent."""
+
+    job_id: str
+    application: str
+    scenario: str
+    api_name: str
+
+    total_requests: int
+    successful_requests: int
+    failed_requests: int
+
+    avg_response_time: float
+    p95_response_time: float
+    max_response_time: float
+
+    throughput: float
+    error_rate: float
+
+    http_status: int
+
+
+# ============================================================
+# Monitoring Agent Output
+# ============================================================
+
+class MonitoringResult(BaseModel):
+    """Infrastructure metrics received from Monitoring Agent."""
+
+    cpu_usage: float
+    memory_usage: float
+    db_connections: int
+    api_latency: float
+    tps: float
+
+    alerts: List[str] = Field(default_factory=list)
+
+# ============================================================
+# Security Agent Output
+# ============================================================
+
+class SecurityResult(BaseModel):
+    """
+    Output received from the Security Agent.
+
+    Note:
+    Security Agent may or may not be invoked depending on
+    the user's request. When invoked, it returns a consolidated
+    security assessment instead of individual security checks.
+    """
+
+    status: str
+
+    security_score: str
+
+    issues: List[str] = Field(
+        default_factory=list
+    )
+
+    recommendations: List[str] = Field(
+        default_factory=list
+    )
+# ============================================================
+# Historical Similar Incident
+# ============================================================
+
+class HistoricalIncident(BaseModel):
+    """Historical incident retrieved from dataset/RAG."""
+
+    job_id: str
+    scenario: str
+
+    bottleneck: str
+    root_cause: str
+    recommendation: str
+
+    similarity_score: float
+
+
+# ============================================================
+# Retrieved RAG Evidence
+# ============================================================
+
+class RAGEvidence(BaseModel):
+    """Evidence returned by Retriever."""
+
+    source: str
+    section: str
+
+    content: str
+
+    relevance_score: float
+
+
+# ============================================================
+# Recommendation
+# ============================================================
+
+class Recommendation(BaseModel):
+    """Optimization recommendation."""
+
+    priority: str
+    title: str
+    description: str
+
+
+# ============================================================
+# Final Analysis Result
+# ============================================================
+
+class AnalysisResult(BaseModel):
+    """
+    Final structured output produced by Analysis Agent.
+    This object will be consumed directly by the Report Agent.
+    """
+
+    overall_status: str
+
+    sla_status: str
+
+    bottleneck: str
+
+    root_cause: str
+
+    confidence_score: float
+
+    recommendations: List[Recommendation]
+
+    historical_matches: List[HistoricalIncident]
+
+    rag_evidence: List[RAGEvidence]
+
+    summary: str
+
+
+# ============================================================
+# SLA Evaluation Result
+# ============================================================
+
+class MetricStatus(BaseModel):
+    """Status of an individual performance metric."""
+
+    metric: str
+    actual: float
+    threshold: float
+    status: str  # PASS / WARNING / FAIL
+
+
+class SLAEvaluation(BaseModel):
+    """Output produced by SLA Engine."""
+
+    overall_status: str
+    severity: str
+
+    violated_metrics: List[MetricStatus] = Field(default_factory=list)
+
+    passed_metrics: List[MetricStatus] = Field(default_factory=list)
+
+
+# ============================================================
+# Bottleneck Detection Result
+# ============================================================
+
+class BottleneckResult(BaseModel):
+    """Output produced by Bottleneck Detection Engine."""
+
+    bottleneck: str
+    confidence: float
+    reason: str
+    impacted_metrics: List[str] = Field(default_factory=list)
+
+
+
+# ============================================================
+# Historical Search Result
+# ============================================================
+
+class HistoricalSearchResult(BaseModel):
+    """Historical comparison output."""
+
+    total_matches: int
+    matches: List[HistoricalIncident] = Field(default_factory=list)
+
+
+# ============================================================
+# AI Generated Recommendation
+# ============================================================
+
+class AIRecommendation(BaseModel):
+    """Recommendation generated by the LLM."""
+
+    priority: str = Field(
+        description="Priority such as HIGH, MEDIUM or LOW"
+    )
+
+    title: str = Field(
+        description="Short recommendation title"
+    )
+
+    description: str = Field(
+        description="Detailed implementation recommendation"
+    )
+
+
+# ============================================================
+# Structured LLM Response
+# ============================================================
+
+class LLMAnalysisResponse(BaseModel):
+    """
+    Structured response generated by the LLM.
+    """
+
+    executive_summary: str = Field(
+        description="Short executive summary"
+    )
+
+    root_cause: str = Field(
+        description="Most probable root cause"
+    )
+
+    confidence_score: float = Field(
+        ge=0,
+        le=100,
+        description="Confidence score between 0 and 100"
+    )
+
+    recommendations: List[AIRecommendation]
+
+    overall_status: str = Field(
+        description="PASS or FAIL"
+    )
